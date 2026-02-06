@@ -1,5 +1,5 @@
 import Chance from 'chance';
-import { createHandler, type GraphqlHandlerDeps } from './graphql.js';
+import { createHandler, type GraphqlHandlerDeps } from '../functions/graphql.js';
 
 const chance = new Chance();
 
