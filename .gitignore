@@ -1,0 +1,31 @@
+# .gitignore
+
+# ENV #
+########
+.env
+.env.*
+!.env.example
+
+# NODE #
+#########
+node_modules
+npm-debug.log
+package-lock.json
+
+# TYPESCRIPT #
+##############
+*.tsbuildinfo
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode
+.history
+coverage
+webpack-assets.json
