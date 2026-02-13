@@ -32,10 +32,6 @@ export const movies = [
         name: 'Doctor Jekyll',
     },
     {
-        id: '9',
-        name: 'Evil Dead Rise',
-    },
-    {
         id: '10',
         name: 'Frankenstein',
     },
