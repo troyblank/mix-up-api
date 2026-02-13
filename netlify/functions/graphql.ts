@@ -18,19 +18,34 @@ export type GraphqlHandlerDeps = {
 	};
 };
 
-const CORS_HEADERS: Record<string, string> = {
-	'Access-Control-Allow-Origin': 'https://mixup.troyblank.com, localhost',
-	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-	'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
+const ALLOWED_HOSTNAMES = new Set(['localhost', 'mixup.troyblank.com']);
+
+function getCorsHeaders(event: NetlifyEvent): Record<string, string> {
+	const headers: Record<string, string> = {
+		'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+		'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+	};
+	const raw = event.headers?.origin ?? event.headers?.Origin;
+	const origin = Array.isArray(raw) ? raw[0] : raw;
+	if (origin) {
+		try {
+			const url = new URL(origin);
+			if (ALLOWED_HOSTNAMES.has(url.hostname)) {
+				headers['Access-Control-Allow-Origin'] = origin;
+			}
+		} catch {
+			// ignore invalid origin
+		}
+	}
+	return headers;
+}
 
 const runHandler = async (
 	event: NetlifyEvent,
 	deps: GraphqlHandlerDeps,
 ): Promise<NetlifyHandlerResponse> => {
-	// Handle CORS preflight so the browser gets 200 and allows the actual request.
 	if (event.httpMethod === 'OPTIONS') {
-		return { statusCode: 200, headers: CORS_HEADERS, body: '' };
+		return { statusCode: 200, headers: getCorsHeaders(event), body: '' };
 	}
 
 	await deps.ensureServerStarted();
@@ -69,7 +84,7 @@ const runHandler = async (
 
 	const responseHeaders: Record<string, string> = {
 		'Content-Type': 'application/json',
-		...CORS_HEADERS,
+		...getCorsHeaders(event),
 	};
 	for (const [key, value] of response.headers) {
 		responseHeaders[key] = value;
