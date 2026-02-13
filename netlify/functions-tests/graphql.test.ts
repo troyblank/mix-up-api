@@ -26,7 +26,7 @@ describe('Netlify GraphQL Handler', () => {
 		expect(result.statusCode).toBe(200);
 		expect(result.body).toBe('{"data":{"lists":[]}}');
 		expect(result.headers['Content-Type']).toBe('application/json');
-		expect(result.headers['Access-Control-Allow-Origin']).toBe('*');
+		expect(result.headers['Access-Control-Allow-Origin']).toBe('https://mixup.troyblank.com, localhost');
 	});
 
 	it('Should use 200 when response status is undefined.', async () => {
@@ -59,10 +59,37 @@ describe('Netlify GraphQL Handler', () => {
 
 		const result = await handler({ httpMethod: 'GET' });
 
-		expect(result.headers['Access-Control-Allow-Origin']).toBe('*');
+		expect(result.headers['Access-Control-Allow-Origin']).toBe('https://mixup.troyblank.com, localhost');
 		expect(result.headers['Access-Control-Allow-Headers']).toBe(
 			'Content-Type, Authorization',
 		);
+	});
+
+	it('Should respond to OPTIONS preflight with 200 and CORS headers without calling the server.', async () => {
+		const mockEnsureServerStarted = jest.fn().mockResolvedValue(undefined);
+		const mockExecute = jest.fn().mockResolvedValue({
+			status: 200,
+			headers: [],
+			body: { kind: 'complete' as const, string: '{}' },
+		});
+		const handler = createHandler({
+			ensureServerStarted: mockEnsureServerStarted,
+			server: { executeHTTPGraphQLRequest: mockExecute },
+		});
+
+		const result = await handler({ httpMethod: 'OPTIONS' });
+
+		expect(result.statusCode).toBe(200);
+		expect(result.body).toBe('');
+		expect(result.headers['Access-Control-Allow-Origin']).toBe('https://mixup.troyblank.com, localhost');
+		expect(result.headers['Access-Control-Allow-Headers']).toBe(
+			'Content-Type, Authorization',
+		);
+		expect(result.headers['Access-Control-Allow-Methods']).toBe(
+			'GET, POST, OPTIONS',
+		);
+		expect(mockEnsureServerStarted).not.toHaveBeenCalled();
+		expect(mockExecute).not.toHaveBeenCalled();
 	});
 
 	it('Should use GET when httpMethod is missing.', async () => {
