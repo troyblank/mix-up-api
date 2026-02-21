@@ -18,7 +18,19 @@ export type GraphqlHandlerDeps = {
 	};
 };
 
-const ALLOWED_HOSTNAMES = new Set(['localhost', 'mixup.troyblank.com']);
+const ALLOWED_HOSTNAMES = new Set([
+	'localhost',
+	'mixup.troyblank.com',
+]);
+
+function isOriginAllowed(hostname: string): boolean {
+	if (ALLOWED_HOSTNAMES.has(hostname)) return true;
+	// Allow Netlify deploy previews: deploy-preview-N--mix-up.netlify.app
+	if (hostname.endsWith('mix-up.netlify.app')) {
+		return true;
+	}
+	return false;
+}
 
 function getCorsHeaders(event: NetlifyEvent): Record<string, string> {
 	const headers: Record<string, string> = {
@@ -30,7 +42,7 @@ function getCorsHeaders(event: NetlifyEvent): Record<string, string> {
 	if (origin) {
 		try {
 			const url = new URL(origin);
-			if (ALLOWED_HOSTNAMES.has(url.hostname)) {
+			if (isOriginAllowed(url.hostname)) {
 				headers['Access-Control-Allow-Origin'] = origin;
 			}
 		} catch {

@@ -93,6 +93,28 @@ describe('Netlify GraphQL Handler', () => {
 		);
 	});
 
+	it('Should allow Netlify deploy preview origins.', async () => {
+		const mockEnsureServerStarted = jest.fn().mockResolvedValue(undefined);
+		const mockExecute = jest.fn().mockResolvedValue({
+			status: 200,
+			headers: [],
+			body: { kind: 'complete' as const, string: '{}' },
+		});
+		const handler = createHandler({
+			ensureServerStarted: mockEnsureServerStarted,
+			server: { executeHTTPGraphQLRequest: mockExecute },
+		});
+
+		const result = await handler({
+			httpMethod: 'GET',
+			headers: { origin: 'https://deploy-preview-2--mix-up.netlify.app' },
+		});
+
+		expect(result.headers['Access-Control-Allow-Origin']).toBe(
+			'https://deploy-preview-2--mix-up.netlify.app',
+		);
+	});
+
 	it('Should not set Access-Control-Allow-Origin when origin is disallowed.', async () => {
 		const mockEnsureServerStarted = jest.fn().mockResolvedValue(undefined);
 		const mockExecute = jest.fn().mockResolvedValue({
