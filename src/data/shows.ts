@@ -100,10 +100,6 @@ export const shows = [
         name: 'Head, The',
     },
     {
-        id: '26',
-        name: 'House of Guinness',
-    },
-    {
         id: '27',
         name: 'Into the Dark',
     },
@@ -194,5 +190,9 @@ export const shows = [
     {
         id: '49',
         name: 'Yellow jackets',
+    },
+    {
+        id: '50',
+        name: 'The Pit',
     },
 ]
