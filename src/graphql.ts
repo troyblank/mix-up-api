@@ -1,5 +1,5 @@
 import { ApolloServer } from '@apollo/server';
-import { movies, shows } from './data/index.ts';
+import { movies, shows, middara } from './data/index.ts';
 
 type ID = string;
 
@@ -8,9 +8,14 @@ const typeDefs = `
         id: ID!
         name: String!
     }
+    enum ListType {
+        pick
+        list
+    }
     type List {
         id: ID!
         name: String!
+        type: ListType!
         items: [ListItem]!
     }
     type Query {
@@ -23,12 +28,20 @@ export const lists = [
     {
         id: '1',
         name: 'TV Shows',
+        type: 'pick',
         items: shows,
     },
     {
         id: '2',
         name: 'Movies',
+        type: 'pick',
         items: movies,
+    },
+    {
+        id: '3',
+        name: 'Middara',
+        type: 'list',
+        items: middara,
     },
 ];
 
