@@ -1,5 +1,5 @@
 import { ApolloServer } from '@apollo/server';
-import { movies, shows, middara } from './data/index.ts';
+import { cookBooks,movies, shows, middara } from './data/index.ts';
 
 type ID = string;
 
@@ -36,6 +36,12 @@ export const lists = [
         name: 'Movies',
         type: 'pick',
         items: movies,
+    },
+    {
+        id: '4',
+        name: 'Cook Books',
+        type: 'pick',
+        items: cookBooks,
     },
     {
         id: '3',
