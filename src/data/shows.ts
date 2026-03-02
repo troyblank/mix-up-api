@@ -76,10 +76,6 @@ export const shows = [
         name: 'Fox Hollow Murders, The',
     },
     {
-        id: '20',
-        name: 'From',
-    },
-    {
         id: '21',
         name: 'Full Circle',
     },
