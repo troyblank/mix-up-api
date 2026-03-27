@@ -5,26 +5,29 @@
 	"packageManager": "yarn@1.22.22",
 	"main": "index.html",
 	"scripts": {
+		"build": "graphql-codegen --config codegen.yml",
 		"lint": "eslint . && tsc",
-		"start": "node ./src/serve.ts",
+		"start": "yarn build && node ./src/serve.ts",
 		"test": "jest --coverage"
 	},
 	"dependencies": {
-		"@apollo/server": "5.4.0",
-        "graphql": "16.13.0"
+		"@apollo/server": "5.5.0",
+		"graphql": "16.13.2"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",
+		"@graphql-codegen/cli": "6.2.1",
+		"@graphql-codegen/typescript": "5.0.9",
 		"@types/chance": "1.1.7",
 		"@types/jest": "30.0.0",
-		"@types/node": "25.3.2",
+		"@types/node": "25.5.0",
 		"chance": "1.1.13",
-		"eslint": "10.0.2",
-		"globals": "17.3.0",
-		"jest": "30.2.0",
+		"eslint": "10.1.0",
+		"globals": "17.4.0",
+		"jest": "30.3.0",
 		"ts-jest": "29.4.6",
-		"typescript": "5.9.3",
-		"typescript-eslint": "8.56.1"
+		"typescript": "6.0.2",
+		"typescript-eslint": "8.57.2"
 	},
 	"author": "Troy Blank",
 	"license": "BSD"

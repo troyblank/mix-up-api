@@ -112,10 +112,6 @@ export const shows = [
         name: 'Long Shadow, The',
     },
     {
-        id: '31',
-        name: 'Mastermind: To Think like a Killer',
-    },
-    {
         id: '32',
         name: 'Masters of the Universe: Revolution',
     },
@@ -191,4 +187,8 @@ export const shows = [
         id: '50',
         name: 'The Pit',
     },
+    {
+        id: '51',
+        name: 'Something Very Bad is Going to Happen'
+    }
 ]

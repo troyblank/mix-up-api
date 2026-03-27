@@ -1,5 +1,9 @@
 # .gitignore
 
+# GRAPHQL #
+###########
+src/generated/*
+
 # ENV #
 ########
 .env

@@ -1,30 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
-import { comedies, cookBooks,movies, shows, middara } from './data/index.ts';
+import { comedies, cookBooks, movies, shows, middara } from './data/index.ts';
+import type { CreateListInput, List } from './generated/types.ts';
+import { createNewList } from './mutations/index.ts';
 
 type ID = string;
 
-const typeDefs = `
-    type ListItem {
-        id: ID!
-        name: String!
-    }
-    enum ListType {
-        pick
-        list
-    }
-    type List {
-        id: ID!
-        name: String!
-        type: ListType!
-        items: [ListItem]!
-    }
-    type Query {
-        lists: [List]!
-        list(id: ID!): List
-    }
-`;
+const typeDefs = readFileSync(join(process.cwd(), 'src', 'schema.graphql'), 'utf8');
 
-export const lists = [
+let lists: List[] = [
     {
         id: '1',
         name: 'TV Shows',
@@ -58,6 +43,14 @@ export const lists = [
 ];
 
 const resolvers = {
+    Mutation: {
+        createNewList: (_: unknown, { input }: { input: CreateListInput }) => {
+            const newList = createNewList(input);
+            lists = [...lists, newList];
+
+            return newList;
+        },
+    },
     Query: {
         lists: () => lists,
         list: (_: unknown, { id }: { id: ID }) => lists.find((list) => list.id === id),
