@@ -81,6 +81,14 @@ export const movies = [
     },
     {
         id: '23',
-        name: 'Good Luck Have Fun Don\'t Die',
+        name: 'Do Not Enter',
     },
+    {
+        id: '24',
+        name: 'Peaky Blinders The Immortal Man',
+    },
+    {
+        id: '25',
+        name: 'Send Help',
+    }
 ]

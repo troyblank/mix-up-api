@@ -1,0 +1,30 @@
+input CreateListInput {
+	name: String!
+	type: ListType!
+}
+
+type ListItem {
+	id: ID!
+	name: String!
+}
+
+enum ListType {
+	pick
+	list
+}
+
+type List {
+	id: ID!
+	name: String!
+	type: ListType!
+	items: [ListItem!]!
+}
+
+type Mutation {
+	createNewList(input: CreateListInput!): List!
+}
+
+type Query {
+	lists: [List!]!
+	list(id: ID!): List
+}
