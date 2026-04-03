@@ -10,5 +10,5 @@
 		"allowImportingTsExtensions": true,
 		"types": ["jest", "node"]
 	},
-	"include": ["src", "netlify"]
+	"include": ["src", "netlify", "config.ts"]
 }

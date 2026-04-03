@@ -143,7 +143,7 @@ describe('GraphQL API', () => {
 		expect(list.items[0]).toHaveProperty('name');
 	});
 
-	it('Should create a new list via createNewList mutation.', async () => {
+	it('Should reject createNewList when authentication is not present on the context.', async () => {
 		const input = {
 			name: chance.sentence({ words: 3 }),
 			type: chance.pickone(['pick', 'list'] as const),
@@ -151,6 +151,33 @@ describe('GraphQL API', () => {
 
 		const result = await server.executeOperation({
 			query: `
+				mutation CreateNewList($input: CreateListInput!) {
+					createNewList(input: $input) {
+						id
+					}
+				}
+			`,
+			variables: { input },
+		});
+
+		if (result.body.kind !== 'single') {
+			throw new Error(`Expected single result, got ${result.body.kind}`);
+		}
+
+		const single = result.body;
+		expect(single.singleResult.data?.createNewList).toBeUndefined();
+		expect(single.singleResult.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
+	});
+
+	it('Should create a new list via createNewList mutation.', async () => {
+		const input = {
+			name: chance.sentence({ words: 3 }),
+			type: chance.pickone(['pick', 'list'] as const),
+		};
+
+		const result = await server.executeOperation(
+			{
+				query: `
 				mutation CreateNewList($input: CreateListInput!) {
 					createNewList(input: $input) {
 						id
@@ -163,8 +190,10 @@ describe('GraphQL API', () => {
 					}
 				}
 			`,
-			variables: { input },
-		});
+				variables: { input },
+			},
+			{ contextValue: { cognito: { sub: chance.guid() } } },
+		);
 
 		if (result.body.kind !== 'single') {
 			throw new Error(`Expected single result, got ${result.body.kind}`);
