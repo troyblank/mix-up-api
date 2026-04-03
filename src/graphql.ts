@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
+import { GraphQLError } from 'graphql';
+import type { GraphQLContext } from './authentication/graphqlContext.ts';
 import {
 	addList,
 	getLists,
@@ -16,7 +18,16 @@ const typeDefs = readFileSync(join(process.cwd(), 'src', 'schema.graphql'), 'utf
 
 const resolvers = {
 	Mutation: {
-		createNewList: async (_: unknown, { input }: { input: CreateListInput }) => {
+		createNewList: async (
+			_: unknown,
+			{ input }: { input: CreateListInput },
+			context: GraphQLContext,
+		) => {
+			if (!context.cognito) {
+				throw new GraphQLError('Not authenticated', {
+					extensions: { code: 'UNAUTHENTICATED' },
+				});
+			}
 			const newList = createNewList(input);
 			await addList(newList);
 
@@ -35,4 +46,4 @@ const resolvers = {
 	},
 };
 
-export const server = new ApolloServer({ typeDefs, resolvers });
+export const server = new ApolloServer<GraphQLContext>({ typeDefs, resolvers });

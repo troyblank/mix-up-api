@@ -1,4 +1,5 @@
 import { HeaderMap } from '@apollo/server';
+import { buildGraphqlContextFromAuthHeader, getAuthorizationHeaderFromEvent } from '../../src/authentication/index.ts';
 import { server } from '../../src/graphql.ts';
 import { ensureServerStarted } from './utils';
 import type { NetlifyEvent, NetlifyHandlerResponse } from './types.ts';
@@ -89,9 +90,11 @@ const runHandler = async (
 		body,
 	};
 
+	const authHeader = getAuthorizationHeaderFromEvent(event);
+
 	const response = await deps.server.executeHTTPGraphQLRequest({
 		httpGraphQLRequest,
-		context: async () => ({}),
+		context: async () => buildGraphqlContextFromAuthHeader(authHeader),
 	});
 
 	const responseHeaders: Record<string, string> = {
