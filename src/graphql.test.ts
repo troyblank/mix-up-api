@@ -1,10 +1,27 @@
 import Chance from 'chance';
-import { server } from './graphql.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
+import { resetMockPgRows } from './database/__mocks__/pg.ts';
 
 const chance = new Chance();
 
 describe('GraphQL API', () => {
-	beforeAll(() => server.start());
+	let server: Awaited<typeof import('./graphql.js')>['server'];
+
+	beforeAll(async () => {
+		process.env.DATABASE_URL = 'postgresql://test';
+		const graphql = await import('./graphql.js');
+		server = graphql.server;
+		await server.start();
+	});
+
+	afterAll(async () => {
+		delete process.env.DATABASE_URL;
+		await server.stop();
+	});
+
+	beforeEach(() => {
+		resetMockPgRows();
+	});
 
 	it('Should return all lists with id and name.', async () => {
 		const result = await server.executeOperation({
@@ -34,6 +51,22 @@ describe('GraphQL API', () => {
 			expect(typeof list.id).toBe('string');
 			expect(typeof list.name).toBe('string');
 		});
+	});
+
+	it('Returns null when no list matches the id.', async () => {
+		const result = await server.executeOperation({
+			query: `
+				query {
+					list(id: "no-such-list-id") {
+						id
+					}
+				}
+			`,
+		});
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.errors).toBeUndefined();
+		expect(result.body.singleResult.data?.list).toBeNull();
 	});
 
 	it('Should return a single list by id.', async () => {
@@ -160,5 +193,26 @@ describe('GraphQL API', () => {
 		const allLists = (listsAfter.body.singleResult.data as { lists: { id: string; name: string }[] })?.lists;
 
 		expect(allLists.some((l) => l.id === created.id && l.name === created.name)).toBe(true);
+
+		const byIdResult = await server.executeOperation({
+			query: `
+				query GetCreated($id: ID!) {
+					list(id: $id) {
+						id
+						name
+						type
+					}
+				}
+			`,
+			variables: { id: created.id },
+		});
+
+		if (byIdResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(byIdResult.body.singleResult.errors).toBeUndefined();
+		expect(byIdResult.body.singleResult.data?.list).toEqual({
+			id: created.id,
+			name: input.name,
+			type: input.type,
+		});
 	});
 });

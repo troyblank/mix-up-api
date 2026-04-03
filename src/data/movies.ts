@@ -64,16 +64,8 @@ export const movies = [
         name: 'Weapons',
     },
     {
-        id: '19',
-        name: 'Wings of Hope (watch on darkroom.film)',
-    },
-    {
         id: '20',
         name: 'Wolf Man',
-    },
-    {
-        id: '21',
-        name: 'Zone of Interest, The',
     },
     {
         id: '22',

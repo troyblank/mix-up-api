@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
-module.exports = {
+const baseConfig = {
+	coveragePathIgnorePatterns: ['<rootDir>/src/database/'],
 	coverageReporters: ['lcov', 'text-summary'],
 	coverageThreshold: {
 		global: {
@@ -16,7 +17,6 @@ module.exports = {
 	preset: 'ts-jest/presets/default-esm',
 	setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 	testEnvironment: 'node',
-	testMatch: ['**/*.test.ts'],
 	transform: {
 		'^.+\\.tsx?$': [
 			'ts-jest',
@@ -32,4 +32,25 @@ module.exports = {
 			},
 		],
 	},
+};
+
+/** @type {import('jest').Config} */
+module.exports = {
+	projects: [
+		{
+			...baseConfig,
+			displayName: 'pool',
+			moduleNameMapper: {
+				...baseConfig.moduleNameMapper,
+				'^pg$': '<rootDir>/src/database/__mocks__/pg.ts',
+			},
+			testMatch: ['<rootDir>/src/database/pool.test.ts', '<rootDir>/src/graphql.test.ts'],
+		},
+		{
+			...baseConfig,
+			displayName: 'main',
+			testMatch: ['**/*.test.ts'],
+			testPathIgnorePatterns: ['<rootDir>/src/database/pool.test.ts', '<rootDir>/src/graphql.test.ts'],
+		},
+	],
 };
