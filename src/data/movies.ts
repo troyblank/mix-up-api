@@ -16,10 +16,6 @@ export const movies = [
         name: 'Beetlejuice Beetlejuice',
     },
     {
-        id: '5',
-        name: 'Blackberry',
-    },
-    {
         id: '6',
         name: 'Class Action Park',
     },
