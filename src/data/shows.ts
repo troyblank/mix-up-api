@@ -120,10 +120,6 @@ export const shows = [
         name: 'Matlock (2024)',
     },
     {
-        id: '34',
-        name: 'Mortician, The',
-    },
-    {
         id: '35',
         name: 'Night Logan Woke Up, The',
     },
