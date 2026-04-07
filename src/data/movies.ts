@@ -78,5 +78,9 @@ export const movies = [
     {
         id: '25',
         name: 'Send Help',
+    },
+    {
+        id: '26',
+        name: 'Project Hail Mary',
     }
 ]
