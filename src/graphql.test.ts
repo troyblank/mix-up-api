@@ -244,4 +244,123 @@ describe('GraphQL API', () => {
 			type: input.type,
 		});
 	});
+
+	it('Should reject insertListItem when authentication is not present on the context.', async () => {
+		const result = await server.executeOperation({
+			query: `
+				mutation InsertItem($input: InsertListItemInput!) {
+					insertListItem(input: $input) {
+						id
+					}
+				}
+			`,
+			variables: {
+				input: { listId: 'any-id', name: chance.word() },
+			},
+		});
+
+		if (result.body.kind !== 'single') {
+			throw new Error(`Expected single result, got ${result.body.kind}`);
+		}
+
+		const single = result.body;
+		expect(single.singleResult.data?.insertListItem).toBeUndefined();
+		expect(single.singleResult.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
+	});
+
+	it('Should return NOT_FOUND when insertListItem targets a list that is not in the database.', async () => {
+		const result = await server.executeOperation(
+			{
+				query: `
+					mutation InsertItem($input: InsertListItemInput!) {
+						insertListItem(input: $input) {
+							id
+							name
+						}
+					}
+				`,
+				variables: {
+					input: { listId: chance.guid(), name: chance.word() },
+				},
+			},
+			{ contextValue: { cognito: { sub: chance.guid() } } },
+		);
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.data?.insertListItem).toBeUndefined();
+		expect(result.body.singleResult.errors?.[0]?.extensions?.code).toBe('NOT_FOUND');
+	});
+
+	it('Should add a list item via insertListItem and expose it on list query.', async () => {
+		const listInput = {
+			name: chance.sentence({ words: 3 }),
+			type: chance.pickone(['pick', 'list'] as const),
+		};
+
+		const createResult = await server.executeOperation(
+			{
+				query: `
+					mutation CreateNewList($input: CreateListInput!) {
+						createNewList(input: $input) {
+							id
+						}
+					}
+				`,
+				variables: { input: listInput },
+			},
+			{ contextValue: { cognito: { sub: chance.guid() } } },
+		);
+
+		if (createResult.body.kind !== 'single') throw new Error('Expected single result');
+		const listId = (createResult.body.singleResult.data as { createNewList: { id: string } })
+			.createNewList.id;
+
+		const itemName = chance.sentence({ words: 2 });
+
+		const insertResult = await server.executeOperation(
+			{
+				query: `
+					mutation InsertItem($input: InsertListItemInput!) {
+						insertListItem(input: $input) {
+							id
+							name
+						}
+					}
+				`,
+				variables: {
+					input: { listId, name: itemName },
+				},
+			},
+			{ contextValue: { cognito: { sub: chance.guid() } } },
+		);
+
+		if (insertResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(insertResult.body.singleResult.errors).toBeUndefined();
+		const inserted = insertResult.body.singleResult.data?.insertListItem as {
+			id: string;
+			name: string;
+		};
+		expect(inserted.name).toBe(itemName);
+		expect(typeof inserted.id).toBe('string');
+
+		const listResult = await server.executeOperation({
+			query: `
+				query GetList($id: ID!) {
+					list(id: $id) {
+						items {
+							id
+							name
+						}
+					}
+				}
+			`,
+			variables: { id: listId },
+		});
+
+		if (listResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(listResult.body.singleResult.errors).toBeUndefined();
+		const items = (listResult.body.singleResult.data?.list as { items: { id: string; name: string }[] })
+			.items;
+		expect(items.some((i) => i.id === inserted.id && i.name === itemName)).toBe(true);
+	});
 });

@@ -5,12 +5,13 @@ import { GraphQLError } from 'graphql';
 import type { GraphQLContext } from './authentication/graphqlContext.ts';
 import {
 	addList,
+	appendListItem,
 	getLists,
 	getListsById,
 	INITIAL_LISTS,
 } from './database/index.ts';
-import type { CreateListInput } from './generated/types.ts';
-import { createNewList } from './mutations/index.ts';
+import type { CreateListInput, InsertListItemInput } from './generated/types.ts';
+import { createNewList, insertListItem } from './mutations/index.ts';
 
 type ID = string;
 
@@ -32,6 +33,25 @@ const resolvers = {
 			await addList(newList);
 
 			return newList;
+		},
+		insertListItem: async (
+			_: unknown,
+			{ input }: { input: InsertListItemInput },
+			context: GraphQLContext,
+		) => {
+			if (!context.cognito) {
+				throw new GraphQLError('Not authenticated', {
+					extensions: { code: 'UNAUTHENTICATED' },
+				});
+			}
+			const item = insertListItem(input);
+			const updated = await appendListItem(input.listId, item);
+			if (!updated) {
+				throw new GraphQLError('List not found', {
+					extensions: { code: 'NOT_FOUND' },
+				});
+			}
+			return item;
 		},
 	},
 	Query: {
