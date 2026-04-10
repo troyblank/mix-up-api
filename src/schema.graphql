@@ -3,6 +3,11 @@ input CreateListInput {
 	type: ListType!
 }
 
+input InsertListItemInput {
+	listId: ID!
+	name: String!
+}
+
 type ListItem {
 	id: ID!
 	name: String!
@@ -22,6 +27,7 @@ type List {
 
 type Mutation {
 	createNewList(input: CreateListInput!): List!
+	insertListItem(input: InsertListItemInput!): ListItem!
 }
 
 type Query {
