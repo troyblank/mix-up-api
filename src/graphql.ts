@@ -2,15 +2,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
 import { GraphQLError } from 'graphql';
-import type { GraphQLContext } from './authentication/graphqlContext.ts';
+import { requireAuthenticatedUser, type GraphQLContext } from './authentication';
 import {
 	addList,
 	appendListItem,
+	deleteListItem,
 	getLists,
 	getListsById,
 	INITIAL_LISTS,
 } from './database/index.ts';
-import type { CreateListInput, InsertListItemInput } from './generated/types.ts';
+import type { CreateListInput, DeleteListItemInput, InsertListItemInput } from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
 
 type ID = string;
@@ -24,11 +25,7 @@ const resolvers = {
 			{ input }: { input: CreateListInput },
 			context: GraphQLContext,
 		) => {
-			if (!context.cognito) {
-				throw new GraphQLError('Not authenticated', {
-					extensions: { code: 'UNAUTHENTICATED' },
-				});
-			}
+			requireAuthenticatedUser(context);
 			const newList = createNewList(input);
 			await addList(newList);
 
@@ -39,11 +36,7 @@ const resolvers = {
 			{ input }: { input: InsertListItemInput },
 			context: GraphQLContext,
 		) => {
-			if (!context.cognito) {
-				throw new GraphQLError('Not authenticated', {
-					extensions: { code: 'UNAUTHENTICATED' },
-				});
-			}
+			requireAuthenticatedUser(context);
 			const item = insertListItem(input);
 			const updated = await appendListItem(input.listId, item);
 			if (!updated) {
@@ -51,7 +44,22 @@ const resolvers = {
 					extensions: { code: 'NOT_FOUND' },
 				});
 			}
+
 			return item;
+		},
+		deleteListItem: async (
+			_: unknown,
+			{ input }: { input: DeleteListItemInput },
+			context: GraphQLContext,
+		) => {
+			requireAuthenticatedUser(context);
+			const deleted = await deleteListItem(input.itemId);
+			if (!deleted) {
+				throw new GraphQLError('List item not found', {
+					extensions: { code: 'NOT_FOUND' },
+				});
+			}
+			return true;
 		},
 	},
 	Query: {

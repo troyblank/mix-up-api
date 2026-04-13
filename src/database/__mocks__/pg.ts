@@ -37,6 +37,17 @@ export const Pool = jest.fn().mockImplementation(() => ({
 			}
 			return { rows: [], rowCount: 0 };
 		}
+		if (sql.includes('delete from public.list_items')) {
+			const itemId = params![0] as string;
+			for (const row of mockPgRows) {
+				const before = row.items.length;
+				row.items = row.items.filter((i) => i.id !== itemId);
+				if (before !== row.items.length) {
+					return { rows: [], rowCount: 1 };
+				}
+			}
+			return { rows: [], rowCount: 0 };
+		}
 		if (sql.includes('from public.lists order by')) {
 			return { rows: mockPgRows.map((r) => ({ ...r, items: undefined })) };
 		}

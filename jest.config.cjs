@@ -1,6 +1,5 @@
 /** @type {import('jest').Config} */
 const baseConfig = {
-	coveragePathIgnorePatterns: ['<rootDir>/src/database/'],
 	coverageReporters: ['lcov', 'text-summary'],
 	coverageThreshold: {
 		global: {
@@ -34,7 +33,7 @@ const baseConfig = {
 	},
 };
 
-/** @type {import('jest').Config} */
+// Mock
 module.exports = {
 	projects: [
 		{
@@ -44,13 +43,13 @@ module.exports = {
 				...baseConfig.moduleNameMapper,
 				'^pg$': '<rootDir>/src/database/__mocks__/pg.ts',
 			},
-			testMatch: ['<rootDir>/src/database/pool.test.ts', '<rootDir>/src/graphql.test.ts'],
+			testMatch: ['<rootDir>/src/database/*.test.ts', '<rootDir>/src/graphql.test.ts'],
 		},
 		{
 			...baseConfig,
 			displayName: 'main',
 			testMatch: ['**/*.test.ts'],
-			testPathIgnorePatterns: ['<rootDir>/src/database/pool.test.ts', '<rootDir>/src/graphql.test.ts'],
+			testPathIgnorePatterns: ['<rootDir>/src/database/', '<rootDir>/src/graphql.test.ts'],
 		},
 	],
 };
