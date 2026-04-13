@@ -22,3 +22,9 @@ export const appendListItem = async (listId: string, item: ListItem): Promise<bo
 	);
 	return (rowCount ?? 0) > 0;
 };
+
+export const deleteListItem = async (itemId: string): Promise<boolean> => {
+	const pool = requirePool();
+	const { rowCount } = await pool.query(`delete from public.list_items where id = $1::text`, [itemId]);
+	return (rowCount ?? 0) > 0;
+};
