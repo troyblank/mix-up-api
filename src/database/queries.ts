@@ -1,4 +1,4 @@
-import { cookBooks, movies, middara } from '../data/index.ts';
+import { cookBooks, middara } from '../data/index.ts';
 import { type List, type ListItem } from '../generated/types.ts';
 import { requirePool } from './pool.ts';
 
@@ -17,12 +17,6 @@ type ListItemRow = {
 };
 
 export const INITIAL_LISTS: List[] = [
-	{
-		id: '2',
-		name: 'Movies',
-		type: 'pick',
-		items: movies,
-	},
 	{
 		id: '4',
 		name: 'Cook Books',
