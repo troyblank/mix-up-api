@@ -3,14 +3,7 @@ import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
 import { GraphQLError } from 'graphql';
 import { requireAuthenticatedUser, type GraphQLContext } from './authentication';
-import {
-	addList,
-	appendListItem,
-	deleteListItem,
-	getLists,
-	getListsById,
-	INITIAL_LISTS,
-} from './database/index.ts';
+import { addList, appendListItem, deleteListItem, getLists, getListsById } from './database/index.ts';
 import type { CreateListInput, DeleteListItemInput, InsertListItemInput } from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
 
@@ -67,8 +60,6 @@ const resolvers = {
 			return getLists();
 		},
 		list: async (_: unknown, { id }: { id: ID }) => {
-			const fromSeed = INITIAL_LISTS.find((list) => list.id === id);
-			if (fromSeed) return fromSeed;
 			return getListsById(id);
 		},
 	},
