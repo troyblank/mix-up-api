@@ -1,4 +1,3 @@
-import { cookBooks, middara } from '../data/index.ts';
 import { type List, type ListItem } from '../generated/types.ts';
 import { requirePool } from './pool.ts';
 
@@ -15,21 +14,6 @@ type ListItemRow = {
 	name: string;
 	list_id: string;
 };
-
-export const INITIAL_LISTS: List[] = [
-	{
-		id: '4',
-		name: 'Cook Books',
-		type: 'pick',
-		items: cookBooks,
-	},
-	{
-		id: '3',
-		name: 'Middara',
-		type: 'list',
-		items: middara,
-	},
-];
 
 const mapItemRowsToByListId = (itemRows: ListItemRow[]): Map<string, ListItem[]> => {
 	const map = new Map<string, ListItem[]>();
@@ -94,9 +78,9 @@ export const fetchListByIdFromDb = async (id: string): Promise<List | undefined>
 };
 
 export const getLists = async (): Promise<List[]> => {
-	const fromDb = await fetchListsFromDb();
+	const list = await fetchListsFromDb();
 
-	return [...INITIAL_LISTS, ...fromDb];
+	return list;
 };
 
 export const getListsById = async (id: ID): Promise<List | null> => {

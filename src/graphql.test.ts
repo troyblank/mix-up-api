@@ -7,6 +7,62 @@ const chance = new Chance();
 describe('GraphQL API', () => {
 	let server: Awaited<typeof import('./graphql.js')>['server'];
 
+	const authenticatedContext = () => ({ cognito: { sub: chance.guid() } });
+
+	async function createListViaApi(input: {
+		name: string;
+		type: 'pick' | 'list';
+	}): Promise<{ id: string; name: string; type: string }> {
+		const result = await server.executeOperation(
+			{
+				query: `
+					mutation CreateNewList($input: CreateListInput!) {
+						createNewList(input: $input) {
+							id
+							name
+							type
+						}
+					}
+				`,
+				variables: { input },
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.errors).toBeUndefined();
+		const created = result.body.singleResult.data?.createNewList as {
+			id: string;
+			name: string;
+			type: string;
+		};
+		return created;
+	}
+
+	async function insertListItemViaApi(
+		listId: string,
+		name: string,
+	): Promise<{ id: string; name: string }> {
+		const result = await server.executeOperation(
+			{
+				query: `
+					mutation InsertItem($input: InsertListItemInput!) {
+						insertListItem(input: $input) {
+							id
+							name
+						}
+					}
+				`,
+				variables: { input: { listId, name } },
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.errors).toBeUndefined();
+		return result.body.singleResult.data?.insertListItem as { id: string; name: string };
+	}
+
 	beforeAll(async () => {
 		process.env.DATABASE_URL = 'postgresql://test';
 		const graphql = await import('./graphql.js');
@@ -24,6 +80,9 @@ describe('GraphQL API', () => {
 	});
 
 	it('Should return all lists with id and name.', async () => {
+		const listName = chance.sentence({ words: 3 });
+		await createListViaApi({ name: listName, type: 'pick' });
+
 		const result = await server.executeOperation({
 			query: `
 				query {
@@ -47,7 +106,8 @@ describe('GraphQL API', () => {
 		}[];
 		expect(listsFromGraphQLQueryResponse).toBeDefined();
 		expect(Array.isArray(listsFromGraphQLQueryResponse)).toBe(true);
-		expect(listsFromGraphQLQueryResponse.length).toBeGreaterThan(0);
+		expect(listsFromGraphQLQueryResponse.length).toBeGreaterThanOrEqual(1);
+		expect(listsFromGraphQLQueryResponse.some((list) => list.name === listName)).toBe(true);
 		listsFromGraphQLQueryResponse.forEach((list) => {
 			expect(list).toHaveProperty('id');
 			expect(list).toHaveProperty('name');
@@ -73,14 +133,8 @@ describe('GraphQL API', () => {
 	});
 
 	it('Should return a single list by id.', async () => {
-		const listsResult = await server.executeOperation({
-			query: `query { lists { id name } }`,
-		});
-		if (listsResult.body.kind !== 'single') throw new Error('Expected single result');
-		const listsFromGraphQLQueryResponse = (listsResult.body.singleResult.data as {
-			lists: { id: string; name: string }[];
-		})?.lists;
-		const firstListFromSeededListsQuery = listsFromGraphQLQueryResponse[0];
+		const listName = chance.sentence({ words: 3 });
+		const created = await createListViaApi({ name: listName, type: 'list' });
 
 		const result = await server.executeOperation({
 			query: `
@@ -91,7 +145,7 @@ describe('GraphQL API', () => {
 					}
 				}
 			`,
-			variables: { id: firstListFromSeededListsQuery.id },
+			variables: { id: created.id },
 		});
 
 		if (result.body.kind !== 'single') {
@@ -101,20 +155,19 @@ describe('GraphQL API', () => {
 		const singleResponseBody = result.body;
 		expect(singleResponseBody.singleResult.errors).toBeUndefined();
 		expect(singleResponseBody.singleResult.data?.list).toEqual({
-			id: firstListFromSeededListsQuery.id,
-			name: firstListFromSeededListsQuery.name,
+			id: created.id,
+			name: listName,
 		});
 	});
 
 	it('Should return list with items when requested.', async () => {
-		const listsResult = await server.executeOperation({
-			query: `query { lists { id name items { id name } } }`,
-		});
-		if (listsResult.body.kind !== 'single') throw new Error('Expected single result');
-		const listsFromGraphQLQueryResponse = (listsResult.body.singleResult.data as {
-			lists: { id: string; name: string; items: { id: string; name: string }[] }[];
-		})?.lists;
-		const seededListThatIncludesItems = listsFromGraphQLQueryResponse[1];
+		const listInput = {
+			name: chance.sentence({ words: 3 }),
+			type: chance.pickone(['pick', 'list'] as const),
+		};
+		const created = await createListViaApi(listInput);
+		const itemName = chance.sentence({ words: 2 });
+		const insertedItem = await insertListItemViaApi(created.id, itemName);
 
 		const result = await server.executeOperation({
 			query: `
@@ -129,7 +182,7 @@ describe('GraphQL API', () => {
 					}
 				}
 			`,
-			variables: { id: seededListThatIncludesItems.id },
+			variables: { id: created.id },
 		});
 
 		if (result.body.kind !== 'single') {
@@ -144,12 +197,14 @@ describe('GraphQL API', () => {
 		};
 
 		expect(singleResponseBody.singleResult.errors).toBeUndefined();
-		expect(listFromListFieldQuery.id).toBe(seededListThatIncludesItems.id);
-		expect(listFromListFieldQuery.name).toBe(seededListThatIncludesItems.name);
+		expect(listFromListFieldQuery.id).toBe(created.id);
+		expect(listFromListFieldQuery.name).toBe(created.name);
 		expect(Array.isArray(listFromListFieldQuery.items)).toBe(true);
-		expect(listFromListFieldQuery.items.length).toBe(seededListThatIncludesItems.items.length);
-		expect(listFromListFieldQuery.items[0]).toHaveProperty('id');
-		expect(listFromListFieldQuery.items[0]).toHaveProperty('name');
+		expect(listFromListFieldQuery.items).toHaveLength(1);
+		expect(listFromListFieldQuery.items[0]).toEqual({
+			id: insertedItem.id,
+			name: itemName,
+		});
 	});
 
 	it('Should reject createNewList when authentication is not present on the context.', async () => {
