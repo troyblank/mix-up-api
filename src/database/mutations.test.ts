@@ -42,7 +42,22 @@ describe('Database mutations', () => {
 			rowCount: undefined,
 		}));
 
-		await expect(deleteListItem('any-id')).resolves.toBe(false);
+		await expect(deleteListItem('any-id')).resolves.toBeNull();
 		query.mockRestore();
+	});
+
+	it('Returns deleted item and list metadata when a row is removed.', async () => {
+		const { addList, appendListItem, deleteListItem } = await import('./mutations.ts');
+
+		await addList({ id: 'l1', name: 'Movies', type: 'pick', items: [] });
+		await appendListItem('l1', { id: 'i1', name: 'Inception' });
+
+		await expect(deleteListItem('i1')).resolves.toEqual({
+			itemId: 'i1',
+			itemName: 'Inception',
+			listId: 'l1',
+			listName: 'Movies',
+			listType: 'pick',
+		});
 	});
 });

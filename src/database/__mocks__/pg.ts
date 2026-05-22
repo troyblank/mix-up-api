@@ -40,11 +40,23 @@ export const Pool = jest.fn().mockImplementation(() => ({
 		if (sql.includes('delete from public.list_items')) {
 			const itemId = params![0] as string;
 			for (const row of mockPgRows) {
-				const before = row.items.length;
-				row.items = row.items.filter((i) => i.id !== itemId);
-				if (before !== row.items.length) {
-					return { rows: [], rowCount: 1 };
+				const deletedItem = row.items.find((i) => i.id === itemId);
+				if (!deletedItem) {
+					continue;
 				}
+				row.items = row.items.filter((i) => i.id !== itemId);
+				return {
+					rows: [
+						{
+							item_id: deletedItem.id,
+							item_name: deletedItem.name,
+							list_id: row.id,
+							list_name: row.name,
+							list_type: row.type,
+						},
+					],
+					rowCount: 1,
+				};
 			}
 			return { rows: [], rowCount: 0 };
 		}
