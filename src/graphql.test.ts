@@ -1,5 +1,5 @@
 import Chance from 'chance';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { resetMockPgRows } from './database/__mocks__/pg.ts';
 
 const chance = new Chance();
@@ -559,5 +559,117 @@ describe('GraphQL API', () => {
 		expect(listResult.body.singleResult.errors).toBeUndefined();
 		const items = (listResult.body.singleResult.data?.list as { items: { id: string }[] }).items;
 		expect(items.some((item) => item.id === itemId)).toBe(false);
+	});
+
+	it('Should not send a delete notification for non-pick lists.', async () => {
+		const originalApiKey = process.env.RESEND_API_KEY;
+		const originalToEmail = process.env.DELETE_TO_EMAIL;
+		const originalFromEmail = process.env.RESEND_FROM_EMAIL;
+		process.env.RESEND_API_KEY = 're_test';
+		process.env.DELETE_TO_EMAIL = 'you@example.com';
+		process.env.RESEND_FROM_EMAIL = 'Mix-Up <mix-up@mail.troyblank.com>';
+
+		const fetchMock = jest.fn<typeof fetch>();
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock;
+
+		const listId = (
+			await createListViaApi({
+				name: chance.sentence({ words: 3 }),
+				type: 'list',
+			})
+		).id;
+		const { id: itemId } = await insertListItemViaApi(listId, chance.sentence({ words: 2 }));
+
+		const deleteResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItem($input: DeleteListItemInput!) {
+						deleteListItem(input: $input)
+					}
+				`,
+				variables: { input: { itemId } },
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (deleteResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(deleteResult.body.singleResult.errors).toBeUndefined();
+		expect(deleteResult.body.singleResult.data?.deleteListItem).toBe(true);
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		globalThis.fetch = originalFetch;
+		if (originalApiKey === undefined) {
+			delete process.env.RESEND_API_KEY;
+		} else {
+			process.env.RESEND_API_KEY = originalApiKey;
+		}
+		if (originalToEmail === undefined) {
+			delete process.env.DELETE_TO_EMAIL;
+		} else {
+			process.env.DELETE_TO_EMAIL = originalToEmail;
+		}
+		if (originalFromEmail === undefined) {
+			delete process.env.RESEND_FROM_EMAIL;
+		} else {
+			process.env.RESEND_FROM_EMAIL = originalFromEmail;
+		}
+	});
+
+	it('Should still delete when a Resend notification is configured but the email request fails.', async () => {
+		const originalApiKey = process.env.RESEND_API_KEY;
+		const originalToEmail = process.env.DELETE_TO_EMAIL;
+		const originalFromEmail = process.env.RESEND_FROM_EMAIL;
+		process.env.RESEND_API_KEY = 're_test';
+		process.env.DELETE_TO_EMAIL = 'you@example.com';
+		process.env.RESEND_FROM_EMAIL = 'Mix-Up <mix-up@mail.troyblank.com>';
+
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = jest.fn<typeof fetch>().mockResolvedValue({
+			ok: false,
+			status: 500,
+			text: async () => 'error',
+		} as Response);
+
+		const listId = (
+			await createListViaApi({
+				name: chance.sentence({ words: 3 }),
+				type: 'pick',
+			})
+		).id;
+		const { id: itemId } = await insertListItemViaApi(listId, chance.sentence({ words: 2 }));
+
+		const deleteResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItem($input: DeleteListItemInput!) {
+						deleteListItem(input: $input)
+					}
+				`,
+				variables: { input: { itemId } },
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (deleteResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(deleteResult.body.singleResult.errors).toBeUndefined();
+		expect(deleteResult.body.singleResult.data?.deleteListItem).toBe(true);
+
+		globalThis.fetch = originalFetch;
+		if (originalApiKey === undefined) {
+			delete process.env.RESEND_API_KEY;
+		} else {
+			process.env.RESEND_API_KEY = originalApiKey;
+		}
+		if (originalToEmail === undefined) {
+			delete process.env.DELETE_TO_EMAIL;
+		} else {
+			process.env.DELETE_TO_EMAIL = originalToEmail;
+		}
+		if (originalFromEmail === undefined) {
+			delete process.env.RESEND_FROM_EMAIL;
+		} else {
+			process.env.RESEND_FROM_EMAIL = originalFromEmail;
+		}
 	});
 });

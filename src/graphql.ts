@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
 import { GraphQLError } from 'graphql';
-import { requireAuthenticatedUser, type GraphQLContext } from './authentication';
+import { requireAuthenticatedUser, type GraphQLContext } from './authentication/index.ts';
 import { addList, appendListItem, deleteListItem, getLists, getListsById } from './database/index.ts';
 import type { CreateListInput, DeleteListItemInput, InsertListItemInput } from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
+import { notifyListItemDeleted } from './notify/notifyListItemDeleted.ts';
 
 type ID = string;
 
@@ -52,6 +53,7 @@ const resolvers = {
 					extensions: { code: 'NOT_FOUND' },
 				});
 			}
+			await notifyListItemDeleted(deleted);
 			return true;
 		},
 	},

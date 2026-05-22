@@ -1,5 +1,14 @@
 import { type List, type ListItem } from '../generated/types.ts';
+import type { DeletedListItem } from '../notify/deletedListItem.ts';
 import { requirePool } from './pool.ts';
+
+type DeleteListItemRow = {
+	item_id: string;
+	item_name: string;
+	list_id: string;
+	list_name: string;
+	list_type: string;
+};
 
 export const addList = async (list: List): Promise<void> => {
 	const pool = requirePool();
@@ -23,8 +32,25 @@ export const appendListItem = async (listId: string, item: ListItem): Promise<bo
 	return (rowCount ?? 0) > 0;
 };
 
-export const deleteListItem = async (itemId: string): Promise<boolean> => {
+export const deleteListItem = async (itemId: string): Promise<DeletedListItem | null> => {
 	const pool = requirePool();
-	const { rowCount } = await pool.query(`delete from public.list_items where id = $1::text`, [itemId]);
-	return (rowCount ?? 0) > 0;
+	const { rows, rowCount } = await pool.query<DeleteListItemRow>(
+		`delete from public.list_items li
+     using public.lists l
+     where li.id = $1::text and li.list_id = l.id
+     returning li.id as item_id, li.name as item_name, li.list_id, l.name as list_name, l.type as list_type`,
+		[itemId],
+	);
+	if ((rowCount ?? 0) === 0 || rows.length === 0) {
+		return null;
+	}
+
+	const row = rows[0];
+	return {
+		itemId: row.item_id,
+		itemName: row.item_name,
+		listId: row.list_id,
+		listName: row.list_name,
+		listType: row.list_type as DeletedListItem['listType'],
+	};
 };
