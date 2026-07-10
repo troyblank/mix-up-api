@@ -15,12 +15,14 @@
 | Variable | Required | Description |
 | -------- | -------- | ----------- |
 | `DATABASE_URL` | Yes | Supabase connection string (Project Settings → Database → Connection string URI). |
-| `RESEND_API_KEY` | No | [Resend](https://resend.com) API key. Omit all three Resend variables to skip delete-notification emails. |
-| `DELETE_TO_EMAIL` | No* | Inbox that receives emails when an item is deleted from a **pick** list. |
-| `RESEND_FROM_EMAIL` | No* | Sender email address on your verified Resend domain.
-\* All three Resend variables are required together for delete notifications to send.
+| `KAFKA_BOOTSTRAP_SERVER` | No | Confluent bootstrap server (`host:port`). Comma‑separate if you have several brokers. Omit all `KAFKA_*` vars to skip publishing delete events. |
+| `KAFKA_KEY` | No | Confluent **Kafka cluster** API key (used as SASL username). |
+| `KAFKA_SECRET` | No | Secret for that API key (used as SASL password). |
+| `KAFKA_TOPIC` | With Kafka | Topic for list-item delete events. **Required** when bootstrap/key/secret are set (no default). Must match the **notifications** consumer. |
 
-Set the same variables in **Netlify** (Site settings → Environment variables) for deployed functions, then redeploy after changes.
+Delete notification email is handled by the separate **notifications** project (Kafka consumer + Resend).
+
+Set the same variables in **Netlify** (Site settings → Environment variables) for deployed functions, then redeploy after changes. Add the `KAFKA_*` variables when the producer should run in production.
 
 ## Commands
 

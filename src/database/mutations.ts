@@ -1,5 +1,5 @@
 import { type List, type ListItem } from '../generated/types.ts';
-import type { DeletedListItem } from '../notify/deletedListItem.ts';
+import type { DeletedListItem } from '../deletedListItem.ts';
 import { requirePool } from './pool.ts';
 
 type DeleteListItemRow = {

@@ -6,7 +6,7 @@ import { requireAuthenticatedUser, type GraphQLContext } from './authentication/
 import { addList, appendListItem, deleteListItem, getLists, getListsById } from './database/index.ts';
 import type { CreateListInput, DeleteListItemInput, InsertListItemInput } from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
-import { notifyListItemDeleted } from './notify/notifyListItemDeleted.ts';
+import { publishListItemDeleted } from './kafka/publishListItemDeleted.ts';
 
 type ID = string;
 
@@ -53,7 +53,9 @@ const resolvers = {
 					extensions: { code: 'NOT_FOUND' },
 				});
 			}
-			await notifyListItemDeleted(deleted);
+			if (deleted.listType === 'pick') {
+				await publishListItemDeleted(deleted);
+			}
 			return true;
 		},
 	},
