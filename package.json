@@ -11,27 +11,28 @@
 		"test": "jest --coverage"
 	},
 	"dependencies": {
-		"@apollo/server": "5.5.0",
-		"aws-jwt-verify": "5.1.1",
+		"@apollo/server": "5.5.1",
+		"aws-jwt-verify": "5.2.1",
 		"dotenv": "17.4.2",
-		"graphql": "16.13.2",
-		"pg": "8.20.0"
+		"graphql": "17.0.2",
+		"kafkajs": "2.2.4",
+		"pg": "8.22.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "10.0.1",
-		"@graphql-codegen/cli": "6.3.0",
-		"@graphql-codegen/typescript": "5.0.10",
-		"@types/chance": "1.1.7",
+		"@graphql-codegen/cli": "7.2.0",
+		"@graphql-codegen/typescript": "6.1.0",
+		"@types/chance": "1.1.8",
 		"@types/jest": "30.0.0",
-		"@types/node": "25.6.0",
+		"@types/node": "26.1.1",
 		"@types/pg": "8.20.0",
 		"chance": "1.1.13",
-		"eslint": "10.2.0",
-		"globals": "17.5.0",
-		"jest": "30.3.0",
-		"ts-jest": "29.4.9",
-		"typescript": "6.0.2",
-		"typescript-eslint": "8.58.2"
+		"eslint": "10.7.0",
+		"globals": "17.7.0",
+		"jest": "30.4.2",
+		"ts-jest": "29.4.11",
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.63.0"
 	},
 	"author": "Troy Blank",
 	"license": "BSD-3-Clause"
