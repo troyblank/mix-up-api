@@ -38,27 +38,40 @@ export const Pool = jest.fn().mockImplementation(() => ({
 			return { rows: [], rowCount: 0 };
 		}
 		if (sql.includes('delete from public.list_items')) {
-			const itemId = params![0] as string;
-			for (const row of mockPgRows) {
-				const deletedItem = row.items.find((i) => i.id === itemId);
-				if (!deletedItem) {
-					continue;
+			const itemIds = sql.includes('any($1::text[])')
+				? (params![0] as string[])
+				: [params![0] as string];
+			const deletedRows: {
+				item_id: string;
+				item_name: string;
+				list_id: string;
+				list_name: string;
+				list_type: string;
+			}[] = [];
+
+			for (const itemId of itemIds) {
+				for (const row of mockPgRows) {
+					const itemIndex = row.items.findIndex((i) => i.id === itemId);
+					if (itemIndex === -1) {
+						continue;
+					}
+					const deletedItem = row.items[itemIndex];
+					row.items = [
+						...row.items.slice(0, itemIndex),
+						...row.items.slice(itemIndex + 1),
+					];
+					deletedRows.push({
+						item_id: deletedItem.id,
+						item_name: deletedItem.name,
+						list_id: row.id,
+						list_name: row.name,
+						list_type: row.type,
+					});
+					break;
 				}
-				row.items = row.items.filter((i) => i.id !== itemId);
-				return {
-					rows: [
-						{
-							item_id: deletedItem.id,
-							item_name: deletedItem.name,
-							list_id: row.id,
-							list_name: row.name,
-							list_type: row.type,
-						},
-					],
-					rowCount: 1,
-				};
 			}
-			return { rows: [], rowCount: 0 };
+
+			return { rows: deletedRows, rowCount: deletedRows.length };
 		}
 		if (sql.includes('from public.lists order by')) {
 			return { rows: mockPgRows.map((r) => ({ ...r, items: undefined })) };

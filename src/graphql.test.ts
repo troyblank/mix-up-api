@@ -629,4 +629,115 @@ describe('GraphQL API', () => {
 			}),
 		);
 	});
+
+	it('Should reject deleteListItems when authentication is not present on the context.', async () => {
+		const result = await server.executeOperation({
+			query: `
+				mutation DeleteItems($input: DeleteListItemsInput!) {
+					deleteListItems(input: $input)
+				}
+			`,
+			variables: {
+				input: { itemIds: ['placeholder-item-identifier'] },
+			},
+		});
+
+		if (result.body.kind !== 'single') {
+			throw new Error(`Expected single result, got ${result.body.kind}`);
+		}
+
+		expect(result.body.singleResult.data?.deleteListItems).toBeUndefined();
+		expect(result.body.singleResult.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
+	});
+
+	it('Should return NOT_FOUND when deleteListItems targets items that do not exist.', async () => {
+		const result = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItems($input: DeleteListItemsInput!) {
+						deleteListItems(input: $input)
+					}
+				`,
+				variables: {
+					input: { itemIds: [chance.guid(), chance.guid()] },
+				},
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.data?.deleteListItems).toBeUndefined();
+		expect(result.body.singleResult.errors?.[0]?.extensions?.code).toBe('NOT_FOUND');
+	});
+
+	it('Should remove multiple list items via deleteListItems and omit them from the list query.', async () => {
+		const listId = (
+			await createListViaApi({
+				name: chance.sentence({ words: 3 }),
+				type: 'list',
+			})
+		).id;
+		const firstItem = await insertListItemViaApi(listId, chance.sentence({ words: 2 }));
+		await new Promise((resolve) => setTimeout(resolve, 2));
+		const secondItem = await insertListItemViaApi(listId, chance.sentence({ words: 2 }));
+		await new Promise((resolve) => setTimeout(resolve, 2));
+		const thirdItem = await insertListItemViaApi(listId, chance.sentence({ words: 2 }));
+
+		const deleteResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItems($input: DeleteListItemsInput!) {
+						deleteListItems(input: $input)
+					}
+				`,
+				variables: {
+					input: { itemIds: [firstItem.id, thirdItem.id] },
+				},
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (deleteResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(deleteResult.body.singleResult.errors).toBeUndefined();
+		expect(deleteResult.body.singleResult.data?.deleteListItems).toBe(2);
+
+		const listResult = await server.executeOperation({
+			query: `
+				query List($id: ID!) {
+					list(id: $id) {
+						items {
+							id
+						}
+					}
+				}
+			`,
+			variables: { id: listId },
+		});
+
+		if (listResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(listResult.body.singleResult.errors).toBeUndefined();
+		const items = (listResult.body.singleResult.data?.list as { items: { id: string }[] })
+			.items;
+		expect(items).toEqual([{ id: secondItem.id }]);
+	});
+
+	it('Should return zero when deleteListItems is called with an empty itemIds array.', async () => {
+		const result = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItems($input: DeleteListItemsInput!) {
+						deleteListItems(input: $input)
+					}
+				`,
+				variables: {
+					input: { itemIds: [] },
+				},
+			},
+			{ contextValue: authenticatedContext() },
+		);
+
+		if (result.body.kind !== 'single') throw new Error('Expected single result');
+		expect(result.body.singleResult.errors).toBeUndefined();
+		expect(result.body.singleResult.data?.deleteListItems).toBe(0);
+	});
 });

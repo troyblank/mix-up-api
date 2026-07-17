@@ -18,7 +18,6 @@ type TestProducer = {
 };
 
 declare global {
-	// eslint-disable-next-line no-var
 	var __mixUpKafkaTestProducer: TestProducer | undefined;
 }
 

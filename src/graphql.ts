@@ -3,8 +3,20 @@ import { join } from 'node:path';
 import { ApolloServer } from '@apollo/server';
 import { GraphQLError } from 'graphql';
 import { requireAuthenticatedUser, type GraphQLContext } from './authentication/index.ts';
-import { addList, appendListItem, deleteListItem, getLists, getListsById } from './database/index.ts';
-import type { CreateListInput, DeleteListItemInput, InsertListItemInput } from './generated/types.ts';
+import {
+	addList,
+	appendListItem,
+	deleteListItem,
+	deleteListItems,
+	getLists,
+	getListsById,
+} from './database/index.ts';
+import type {
+	CreateListInput,
+	DeleteListItemInput,
+	DeleteListItemsInput,
+	InsertListItemInput,
+} from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
 import { publishListItemDeleted } from './kafka/publishListItemDeleted.ts';
 
@@ -57,6 +69,28 @@ const resolvers = {
 				await publishListItemDeleted(deleted);
 			}
 			return true;
+		},
+		deleteListItems: async (
+			_: unknown,
+			{ input }: { input: DeleteListItemsInput },
+			context: GraphQLContext,
+		) => {
+			requireAuthenticatedUser(context);
+			if (input.itemIds.length === 0) {
+				return 0;
+			}
+			const deleted = await deleteListItems(input.itemIds);
+			if (deleted.length === 0) {
+				throw new GraphQLError('List items not found', {
+					extensions: { code: 'NOT_FOUND' },
+				});
+			}
+			for (const item of deleted) {
+				if (item.listType === 'pick') {
+					await publishListItemDeleted(item);
+				}
+			}
+			return deleted.length;
 		},
 	},
 	Query: {
