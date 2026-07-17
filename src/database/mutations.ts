@@ -32,6 +32,14 @@ export const appendListItem = async (listId: string, item: ListItem): Promise<bo
 	return (rowCount ?? 0) > 0;
 };
 
+const mapDeleteListItemRow = (row: DeleteListItemRow): DeletedListItem => ({
+	itemId: row.item_id,
+	itemName: row.item_name,
+	listId: row.list_id,
+	listName: row.list_name,
+	listType: row.list_type as DeletedListItem['listType'],
+});
+
 export const deleteListItem = async (itemId: string): Promise<DeletedListItem | null> => {
 	const pool = requirePool();
 	const { rows, rowCount } = await pool.query<DeleteListItemRow>(
@@ -45,12 +53,25 @@ export const deleteListItem = async (itemId: string): Promise<DeletedListItem | 
 		return null;
 	}
 
-	const row = rows[0];
-	return {
-		itemId: row.item_id,
-		itemName: row.item_name,
-		listId: row.list_id,
-		listName: row.list_name,
-		listType: row.list_type as DeletedListItem['listType'],
-	};
+	return mapDeleteListItemRow(rows[0]);
+};
+
+export const deleteListItems = async (itemIds: string[]): Promise<DeletedListItem[]> => {
+	if (itemIds.length === 0) {
+		return [];
+	}
+
+	const pool = requirePool();
+	const { rows, rowCount } = await pool.query<DeleteListItemRow>(
+		`delete from public.list_items li
+     using public.lists l
+     where li.id = any($1::text[]) and li.list_id = l.id
+     returning li.id as item_id, li.name as item_name, li.list_id, l.name as list_name, l.type as list_type`,
+		[itemIds],
+	);
+	if ((rowCount ?? 0) === 0 || rows.length === 0) {
+		return [];
+	}
+
+	return rows.map(mapDeleteListItemRow);
 };

@@ -60,4 +60,36 @@ describe('Database mutations', () => {
 			listType: 'pick',
 		});
 	});
+
+	it('Returns deleted items and list metadata when multiple rows are removed.', async () => {
+		const { addList, appendListItem, deleteListItems } = await import('./mutations.ts');
+
+		await addList({ id: 'l1', name: 'Movies', type: 'list', items: [] });
+		await appendListItem('l1', { id: 'i1', name: 'Inception' });
+		await appendListItem('l1', { id: 'i2', name: 'Interstellar' });
+		await appendListItem('l1', { id: 'i3', name: 'Tenet' });
+
+		await expect(deleteListItems(['i1', 'i3'])).resolves.toEqual([
+			{
+				itemId: 'i1',
+				itemName: 'Inception',
+				listId: 'l1',
+				listName: 'Movies',
+				listType: 'list',
+			},
+			{
+				itemId: 'i3',
+				itemName: 'Tenet',
+				listId: 'l1',
+				listName: 'Movies',
+				listType: 'list',
+			},
+		]);
+	});
+
+	it('Returns an empty array when deleteListItems is called with no ids.', async () => {
+		const { deleteListItems } = await import('./mutations.ts');
+
+		await expect(deleteListItems([])).resolves.toEqual([]);
+	});
 });
