@@ -16,6 +16,10 @@ input DeleteListItemsInput {
 	itemIds: [ID!]!
 }
 
+input DeleteListInput {
+	listId: ID!
+}
+
 type ListItem {
 	id: ID!
 	name: String!
@@ -38,6 +42,7 @@ type Mutation {
 	insertListItem(input: InsertListItemInput!): ListItem!
 	deleteListItem(input: DeleteListItemInput!): Boolean!
 	deleteListItems(input: DeleteListItemsInput!): Int!
+	deleteList(input: DeleteListInput!): Boolean!
 }
 
 type Query {

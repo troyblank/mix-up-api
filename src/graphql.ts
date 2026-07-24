@@ -6,6 +6,7 @@ import { requireAuthenticatedUser, type GraphQLContext } from './authentication/
 import {
 	addList,
 	appendListItem,
+	deleteList,
 	deleteListItem,
 	deleteListItems,
 	getLists,
@@ -13,12 +14,16 @@ import {
 } from './database/index.ts';
 import type {
 	CreateListInput,
+	DeleteListInput,
 	DeleteListItemInput,
 	DeleteListItemsInput,
 	InsertListItemInput,
 } from './generated/types.ts';
 import { createNewList, insertListItem } from './mutations/index.ts';
-import { publishListItemDeleted } from './kafka/publishListItemDeleted.ts';
+import {
+	publishListItemDeleted,
+	publishListItemsDeleted,
+} from './kafka/publishListItemDeleted.ts';
 
 type ID = string;
 
@@ -79,25 +84,41 @@ const resolvers = {
 			if (input.itemIds.length === 0) {
 				return 0;
 			}
+			const requestedCount = new Set(input.itemIds).size;
 			const deleted = await deleteListItems(input.itemIds);
-			if (deleted.length === 0) {
+			if (deleted.length !== requestedCount) {
 				throw new GraphQLError('List items not found', {
 					extensions: { code: 'NOT_FOUND' },
 				});
 			}
-			for (const item of deleted) {
-				if (item.listType === 'pick') {
-					await publishListItemDeleted(item);
-				}
-			}
+			await publishListItemsDeleted(deleted);
 			return deleted.length;
+		},
+		deleteList: async (
+			_: unknown,
+			{ input }: { input: DeleteListInput },
+			context: GraphQLContext,
+		) => {
+			requireAuthenticatedUser(context);
+			const deleted = await deleteList(input.listId);
+			if (!deleted) {
+				throw new GraphQLError('List not found', {
+					extensions: { code: 'NOT_FOUND' },
+				});
+			}
+			if (deleted.listType === 'pick') {
+				await publishListItemsDeleted(deleted.items);
+			}
+			return true;
 		},
 	},
 	Query: {
-		lists: async () => {
+		lists: async (_: unknown, __: unknown, context: GraphQLContext) => {
+			requireAuthenticatedUser(context);
 			return getLists();
 		},
-		list: async (_: unknown, { id }: { id: ID }) => {
+		list: async (_: unknown, { id }: { id: ID }, context: GraphQLContext) => {
+			requireAuthenticatedUser(context);
 			return getListsById(id);
 		},
 	},

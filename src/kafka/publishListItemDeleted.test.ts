@@ -3,6 +3,7 @@ import Chance from 'chance';
 import {
 	buildListItemDeletedEvent,
 	publishListItemDeleted,
+	publishListItemsDeleted,
 } from './publishListItemDeleted.ts';
 
 const chance = new Chance(88721);
@@ -155,5 +156,87 @@ describe('publishListItemDeleted', () => {
 		p?.disconnect.mockImplementationOnce(() => Promise.reject(new Error('already closed')));
 
 		await expect(publishListItemDeleted(deletedPick)).resolves.toBeUndefined();
+	});
+});
+
+describe('publishListItemsDeleted', () => {
+	const originalEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+
+	beforeEach(() => {
+		for (const key of ENV_KEYS) {
+			originalEnv[key] = process.env[key];
+			delete process.env[key];
+		}
+
+		globalThis.__mixUpKafkaTestProducer = {
+			connect: jest.fn(() => Promise.resolve()),
+			send: jest.fn(() => Promise.resolve()),
+			disconnect: jest.fn(() => Promise.resolve()),
+		};
+	});
+
+	afterEach(() => {
+		globalThis.__mixUpKafkaTestProducer = undefined;
+		for (const key of ENV_KEYS) {
+			if (originalEnv[key] === undefined) {
+				delete process.env[key];
+			} else {
+				process.env[key] = originalEnv[key];
+			}
+		}
+	});
+
+	it('Does nothing when no items are from pick lists.', async () => {
+		process.env.KAFKA_BOOTSTRAP_SERVER = sampleBroker;
+		process.env.KAFKA_KEY = sampleKey;
+		process.env.KAFKA_SECRET = sampleSecret;
+
+		await publishListItemsDeleted([{ ...deletedPick, listType: 'list' }]);
+
+		expect(globalThis.__mixUpKafkaTestProducer?.connect).not.toHaveBeenCalled();
+	});
+
+	it('Connects once, sends all pick-list messages in one batch, then disconnects.', async () => {
+		process.env.KAFKA_BOOTSTRAP_SERVER = sampleBroker;
+		process.env.KAFKA_KEY = sampleKey;
+		process.env.KAFKA_SECRET = sampleSecret;
+		process.env.KAFKA_TOPIC = sampleTopic;
+
+		const p = globalThis.__mixUpKafkaTestProducer;
+		const secondPick = {
+			...deletedPick,
+			itemId: 'item-2',
+			itemName: 'The Matrix',
+		};
+
+		await publishListItemsDeleted([
+			{ ...deletedPick, listType: 'list' },
+			deletedPick,
+			secondPick,
+		]);
+
+		expect(p?.connect).toHaveBeenCalledTimes(1);
+		expect(p?.send).toHaveBeenCalledWith({
+			topic: sampleTopic,
+			messages: [
+				{
+					key: 'list-1',
+					value: JSON.stringify(buildListItemDeletedEvent(deletedPick)),
+				},
+				{
+					key: 'list-1',
+					value: JSON.stringify(buildListItemDeletedEvent(secondPick)),
+				},
+			],
+		});
+		expect(p?.disconnect).toHaveBeenCalledTimes(1);
+	});
+
+	it('Does nothing when Kafka env is incomplete.', async () => {
+		process.env.KAFKA_BOOTSTRAP_SERVER = sampleBroker;
+
+		await publishListItemsDeleted([deletedPick]);
+
+		expect(globalThis.__mixUpKafkaTestProducer?.connect).not.toHaveBeenCalled();
 	});
 });
