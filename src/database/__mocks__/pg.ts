@@ -37,6 +37,32 @@ export const Pool = jest.fn().mockImplementation(() => ({
 			}
 			return { rows: [], rowCount: 0 };
 		}
+		if (sql.includes('delete from public.lists') && !sql.includes('list_items')) {
+			const listId = params![0] as string;
+			const rowIndex = mockPgRows.findIndex((r) => r.id === listId);
+			if (rowIndex === -1) {
+				return { rows: [], rowCount: 0 };
+			}
+			mockPgRows.splice(rowIndex, 1);
+			return { rows: [], rowCount: 1 };
+		}
+		if (
+			sql.includes('from public.list_items li') &&
+			sql.includes('inner join public.lists l') &&
+			sql.includes('li.id = any')
+		) {
+			const itemIds = params![0] as string[];
+			const rows: { id: string }[] = [];
+			for (const itemId of itemIds) {
+				for (const row of mockPgRows) {
+					if (row.items.some((i) => i.id === itemId)) {
+						rows.push({ id: itemId });
+						break;
+					}
+				}
+			}
+			return { rows };
+		}
 		if (sql.includes('delete from public.list_items')) {
 			const itemIds = sql.includes('any($1::text[])')
 				? (params![0] as string[])

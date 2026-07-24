@@ -20,9 +20,10 @@ export const buildListItemDeletedEvent = (deleted: DeletedListItem): ListItemDel
 	listType: deleted.listType,
 });
 
-// Publishes a delete event for pick lists only. Swallows errors so GraphQL delete never fails.
-export const publishListItemDeleted = async (deleted: DeletedListItem): Promise<void> => {
-	if (deleted.listType !== 'pick') {
+// Publishes delete events for pick lists only. Swallows errors so GraphQL delete never fails.
+export const publishListItemsDeleted = async (deleted: DeletedListItem[]): Promise<void> => {
+	const pickItems = deleted.filter((item) => item.listType === 'pick');
+	if (pickItems.length === 0) {
 		return;
 	}
 
@@ -49,14 +50,20 @@ export const publishListItemDeleted = async (deleted: DeletedListItem): Promise<
 
 	try {
 		await producer.connect();
-		const value = JSON.stringify(buildListItemDeletedEvent(deleted));
 		await producer.send({
 			topic: config.topic,
-			messages: [{ key: deleted.listId, value }],
+			messages: pickItems.map((item) => ({
+				key: item.listId,
+				value: JSON.stringify(buildListItemDeletedEvent(item)),
+			})),
 		});
 	} catch (err) {
 		console.error('Failed to publish list item deleted event', err);
 	} finally {
 		await producer.disconnect().catch(() => {});
 	}
+};
+
+export const publishListItemDeleted = async (deleted: DeletedListItem): Promise<void> => {
+	await publishListItemsDeleted([deleted]);
 };

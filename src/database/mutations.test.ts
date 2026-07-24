@@ -92,4 +92,74 @@ describe('Database mutations', () => {
 
 		await expect(deleteListItems([])).resolves.toEqual([]);
 	});
+
+	it('Returns an empty array when deleteListItems targets items that do not all exist.', async () => {
+		const { addList, appendListItem, deleteListItems } = await import('./mutations.ts');
+
+		await addList({ id: 'l1', name: 'Movies', type: 'list', items: [] });
+		await appendListItem('l1', { id: 'i1', name: 'Inception' });
+
+		await expect(deleteListItems(['i1', 'missing'])).resolves.toEqual([]);
+	});
+
+	it('Treats a missing rowCount on deleteList as no rows affected.', async () => {
+		const { addList, deleteList } = await import('./mutations.ts');
+		const { requirePool } = await import('./pool.ts');
+
+		await addList({ id: 'l1', name: 'Movies', type: 'pick', items: [] });
+		const pool = requirePool();
+		const query = jest.spyOn(pool, 'query');
+		query
+			.mockImplementationOnce(async () => ({
+				rows: [{ id: 'l1', name: 'Movies', type: 'pick' }],
+				rowCount: 1,
+			}))
+			.mockImplementationOnce(async () => ({
+				rows: [],
+				rowCount: 0,
+			}))
+			.mockImplementationOnce(async () => ({
+				rows: [],
+				rowCount: undefined,
+			}));
+
+		await expect(deleteList('l1')).resolves.toBeNull();
+		query.mockRestore();
+	});
+
+	it('Returns deleted list metadata and items when a list is removed.', async () => {
+		const { addList, appendListItem, deleteList } = await import('./mutations.ts');
+
+		await addList({ id: 'l1', name: 'Movies', type: 'pick', items: [] });
+		await appendListItem('l1', { id: 'i1', name: 'Inception' });
+		await appendListItem('l1', { id: 'i2', name: 'Interstellar' });
+
+		await expect(deleteList('l1')).resolves.toEqual({
+			listId: 'l1',
+			listName: 'Movies',
+			listType: 'pick',
+			items: [
+				{
+					itemId: 'i1',
+					itemName: 'Inception',
+					listId: 'l1',
+					listName: 'Movies',
+					listType: 'pick',
+				},
+				{
+					itemId: 'i2',
+					itemName: 'Interstellar',
+					listId: 'l1',
+					listName: 'Movies',
+					listType: 'pick',
+				},
+			],
+		});
+	});
+
+	it('Returns null when deleteList targets a list that does not exist.', async () => {
+		const { deleteList } = await import('./mutations.ts');
+
+		await expect(deleteList('no-such-list')).resolves.toBeNull();
+	});
 });
