@@ -1,4 +1,5 @@
 import { type List, type ListItem } from '../generated/types.ts';
+import { listVisibilityClause } from './listAccess.ts';
 import { requirePool } from './pool.ts';
 
 type ID = string;
@@ -7,6 +8,8 @@ type ListMetaRow = {
 	id: string;
 	name: string;
 	type: string;
+	is_private: boolean;
+	owner_user_id: string | null;
 };
 
 type ListItemRow = {
@@ -26,11 +29,22 @@ const mapItemRowsToByListId = (itemRows: ListItemRow[]): Map<string, ListItem[]>
 	return map;
 };
 
-export const fetchListsFromDb = async (): Promise<List[]> => {
+const mapListMetaRow = (row: ListMetaRow): Omit<List, 'items'> => ({
+	id: row.id,
+	name: row.name,
+	type: row.type as List['type'],
+	isPrivate: row.is_private,
+});
+
+export const fetchListsFromDb = async (userId: string): Promise<List[]> => {
 	const pool = requirePool();
 
 	const { rows: listRows } = await pool.query<ListMetaRow>(
-		`select id, name, type from public.lists order by id`,
+		`select id, name, type, is_private, owner_user_id
+     from public.lists
+     where ${listVisibilityClause(1)}
+     order by id`,
+		[userId],
 	);
 
 	if (listRows.length === 0) {
@@ -46,18 +60,21 @@ export const fetchListsFromDb = async (): Promise<List[]> => {
 	const itemsByList = mapItemRowsToByListId(itemRows);
 
 	return listRows.map((row) => ({
-		id: row.id,
-		name: row.name,
-		type: row.type as List['type'],
+		...mapListMetaRow(row),
 		items: itemsByList.get(row.id) ?? [],
 	}));
 };
 
-export const fetchListByIdFromDb = async (id: string): Promise<List | undefined> => {
+export const fetchListByIdFromDb = async (
+	id: string,
+	userId: string,
+): Promise<List | undefined> => {
 	const pool = requirePool();
 	const { rows: listRows } = await pool.query<ListMetaRow>(
-		`select id, name, type from public.lists where id = $1`,
-		[id],
+		`select id, name, type, is_private, owner_user_id
+     from public.lists
+     where id = $1 and ${listVisibilityClause(2)}`,
+		[id, userId],
 	);
 	const meta = listRows[0];
 	if (!meta) {
@@ -70,19 +87,15 @@ export const fetchListByIdFromDb = async (id: string): Promise<List | undefined>
 	);
 
 	return {
-		id: meta.id,
-		name: meta.name,
-		type: meta.type as List['type'],
+		...mapListMetaRow(meta),
 		items: itemRows.map((row) => ({ id: row.id, name: row.name })),
 	};
 };
 
-export const getLists = async (): Promise<List[]> => {
-	const list = await fetchListsFromDb();
-
-	return list;
+export const getLists = async (userId: string): Promise<List[]> => {
+	return fetchListsFromDb(userId);
 };
 
-export const getListsById = async (id: ID): Promise<List | null> => {
-	return (await fetchListByIdFromDb(id)) ?? null;
+export const getListsById = async (id: ID, userId: string): Promise<List | null> => {
+	return (await fetchListByIdFromDb(id, userId)) ?? null;
 };
