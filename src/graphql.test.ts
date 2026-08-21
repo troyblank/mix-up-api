@@ -1012,4 +1012,202 @@ describe('GraphQL API', () => {
 			}),
 		]);
 	});
+
+	it('Hides private lists from other authenticated users.', async () => {
+		const ownerSub = chance.guid();
+		const otherSub = chance.guid();
+		const listName = chance.sentence({ words: 3 });
+
+		const createResult = await server.executeOperation(
+			{
+				query: `
+					mutation CreateNewList($input: CreateListInput!) {
+						createNewList(input: $input) {
+							id
+							name
+							isPrivate
+						}
+					}
+				`,
+				variables: {
+					input: { name: listName, type: 'list', isPrivate: true },
+				},
+			},
+			{ contextValue: { cognito: { sub: ownerSub } } },
+		);
+
+		if (createResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(createResult.body.singleResult.errors).toBeUndefined();
+		const created = createResult.body.singleResult.data?.createNewList as {
+			id: string;
+			name: string;
+			isPrivate: boolean;
+		};
+		expect(created.isPrivate).toBe(true);
+
+		const ownerListsResult = await server.executeOperation(
+			{ query: `query { lists { id name } }` },
+			{ contextValue: { cognito: { sub: ownerSub } } },
+		);
+		if (ownerListsResult.body.kind !== 'single') throw new Error('Expected single result');
+		const ownerLists = (ownerListsResult.body.singleResult.data as { lists: { id: string }[] })
+			.lists;
+		expect(ownerLists.some((list) => list.id === created.id)).toBe(true);
+
+		const otherListsResult = await server.executeOperation(
+			{ query: `query { lists { id name } }` },
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherListsResult.body.kind !== 'single') throw new Error('Expected single result');
+		const otherLists = (otherListsResult.body.singleResult.data as { lists: { id: string }[] })
+			.lists;
+		expect(otherLists.some((list) => list.id === created.id)).toBe(false);
+
+		const otherFetchResult = await server.executeOperation(
+			{
+				query: `
+					query GetList($id: ID!) {
+						list(id: $id) {
+							id
+						}
+					}
+				`,
+				variables: { id: created.id },
+			},
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherFetchResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(otherFetchResult.body.singleResult.data?.list).toBeNull();
+	});
+
+	it('Rejects mutations on private lists from non-owners.', async () => {
+		const ownerSub = chance.guid();
+		const otherSub = chance.guid();
+		const listName = chance.sentence({ words: 3 });
+
+		const createResult = await server.executeOperation(
+			{
+				query: `
+					mutation CreateNewList($input: CreateListInput!) {
+						createNewList(input: $input) {
+							id
+						}
+					}
+				`,
+				variables: {
+					input: { name: listName, type: 'list', isPrivate: true },
+				},
+			},
+			{ contextValue: { cognito: { sub: ownerSub } } },
+		);
+		if (createResult.body.kind !== 'single') throw new Error('Expected single result');
+		const listId = (createResult.body.singleResult.data as { createNewList: { id: string } })
+			.createNewList.id;
+
+		const ownerItemResult = await server.executeOperation(
+			{
+				query: `
+					mutation InsertItem($input: InsertListItemInput!) {
+						insertListItem(input: $input) {
+							id
+						}
+					}
+				`,
+				variables: { input: { listId, name: chance.sentence({ words: 2 }) } },
+			},
+			{ contextValue: { cognito: { sub: ownerSub } } },
+		);
+		if (ownerItemResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(ownerItemResult.body.singleResult.errors).toBeUndefined();
+		const itemId = (ownerItemResult.body.singleResult.data as { insertListItem: { id: string } })
+			.insertListItem.id;
+
+		const otherInsertResult = await server.executeOperation(
+			{
+				query: `
+					mutation InsertItem($input: InsertListItemInput!) {
+						insertListItem(input: $input) {
+							id
+						}
+					}
+				`,
+				variables: { input: { listId, name: chance.sentence({ words: 2 }) } },
+			},
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherInsertResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(otherInsertResult.body.singleResult.data?.insertListItem).toBeUndefined();
+		expect(otherInsertResult.body.singleResult.errors?.[0]?.extensions?.code).toBe('NOT_FOUND');
+
+		const otherDeleteItemResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItem($input: DeleteListItemInput!) {
+						deleteListItem(input: $input)
+					}
+				`,
+				variables: { input: { itemId } },
+			},
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherDeleteItemResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(otherDeleteItemResult.body.singleResult.data?.deleteListItem).toBeUndefined();
+		expect(otherDeleteItemResult.body.singleResult.errors?.[0]?.extensions?.code).toBe(
+			'NOT_FOUND',
+		);
+
+		const otherDeleteItemsResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteItems($input: DeleteListItemsInput!) {
+						deleteListItems(input: $input)
+					}
+				`,
+				variables: { input: { itemIds: [itemId] } },
+			},
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherDeleteItemsResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(otherDeleteItemsResult.body.singleResult.data?.deleteListItems).toBeUndefined();
+		expect(otherDeleteItemsResult.body.singleResult.errors?.[0]?.extensions?.code).toBe(
+			'NOT_FOUND',
+		);
+
+		const otherDeleteListResult = await server.executeOperation(
+			{
+				query: `
+					mutation DeleteList($input: DeleteListInput!) {
+						deleteList(input: $input)
+					}
+				`,
+				variables: { input: { listId } },
+			},
+			{ contextValue: { cognito: { sub: otherSub } } },
+		);
+		if (otherDeleteListResult.body.kind !== 'single') throw new Error('Expected single result');
+		expect(otherDeleteListResult.body.singleResult.data?.deleteList).toBeUndefined();
+		expect(otherDeleteListResult.body.singleResult.errors?.[0]?.extensions?.code).toBe(
+			'NOT_FOUND',
+		);
+
+		const ownerListResult = await server.executeOperation(
+			{
+				query: `
+					query GetList($id: ID!) {
+						list(id: $id) {
+							items {
+								id
+							}
+						}
+					}
+				`,
+				variables: { id: listId },
+			},
+			{ contextValue: { cognito: { sub: ownerSub } } },
+		);
+		if (ownerListResult.body.kind !== 'single') throw new Error('Expected single result');
+		const items = (ownerListResult.body.singleResult.data?.list as { items: { id: string }[] })
+			.items;
+		expect(items).toEqual([{ id: itemId }]);
+	});
 });

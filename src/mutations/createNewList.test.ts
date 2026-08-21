@@ -13,7 +13,20 @@ describe('Create New List Mutation', () => {
 
 		expect(list.name).toBe(newName);
 		expect(list.type).toBe(newType);
+		expect(list.isPrivate).toBe(false);
 		expect(list.items).toEqual([]);
 		expect(typeof list.id).toBe('string');
+	});
+
+	it('Sets isPrivate when provided on the input.', () => {
+		const input = {
+			name: chance.sentence({ words: 3 }),
+			type: chance.pickone(['pick', 'list'] as const),
+			isPrivate: true,
+		};
+
+		const list = createNewList(input);
+
+		expect(list.isPrivate).toBe(true);
 	});
 });

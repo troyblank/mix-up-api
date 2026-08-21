@@ -1,6 +1,7 @@
 import { type List, type ListItem } from '../generated/types.ts';
 import type { DeletedList } from '../deletedList.ts';
 import type { DeletedListItem } from '../deletedListItem.ts';
+import { listVisibilityClause } from './listAccess.ts';
 import { requirePool } from './pool.ts';
 
 type DeleteListItemRow = {
@@ -11,24 +12,30 @@ type DeleteListItemRow = {
 	list_type: string;
 };
 
-export const addList = async (list: List): Promise<void> => {
+export const addList = async (list: List, ownerUserId: string | null): Promise<void> => {
 	const pool = requirePool();
 
-	await pool.query(`insert into public.lists (id, name, type) values ($1, $2, $3)`, [
-		list.id,
-		list.name,
-		list.type,
-	]);
+	await pool.query(
+		`insert into public.lists (id, name, type, is_private, owner_user_id) values ($1, $2, $3, $4, $5)`,
+		[list.id, list.name, list.type, list.isPrivate, ownerUserId],
+	);
 };
 
-export const appendListItem = async (listId: string, item: ListItem): Promise<boolean> => {
+export const appendListItem = async (
+	listId: string,
+	item: ListItem,
+	userId: string,
+): Promise<boolean> => {
 	const pool = requirePool();
 	const { rowCount } = await pool.query(
 		`insert into public.list_items (id, list_id, name, sort_order)
      select $1::text, $2::text, $3::text,
             coalesce((select max(sort_order) from public.list_items where list_id = $2::text), 0) + 1
-     where exists (select 1 from public.lists where id = $2::text)`,
-		[item.id, listId, item.name],
+     where exists (
+       select 1 from public.lists l
+       where l.id = $2::text and ${listVisibilityClause(4)}
+     )`,
+		[item.id, listId, item.name, userId],
 	);
 	return (rowCount ?? 0) > 0;
 };
@@ -41,14 +48,18 @@ const mapDeleteListItemRow = (row: DeleteListItemRow): DeletedListItem => ({
 	listType: row.list_type as DeletedListItem['listType'],
 });
 
-export const deleteListItem = async (itemId: string): Promise<DeletedListItem | null> => {
+export const deleteListItem = async (
+	itemId: string,
+	userId: string,
+): Promise<DeletedListItem | null> => {
 	const pool = requirePool();
 	const { rows, rowCount } = await pool.query<DeleteListItemRow>(
 		`delete from public.list_items li
      using public.lists l
      where li.id = $1::text and li.list_id = l.id
+       and ${listVisibilityClause(2)}
      returning li.id as item_id, li.name as item_name, li.list_id, l.name as list_name, l.type as list_type`,
-		[itemId],
+		[itemId, userId],
 	);
 	if ((rowCount ?? 0) === 0 || rows.length === 0) {
 		return null;
@@ -57,7 +68,10 @@ export const deleteListItem = async (itemId: string): Promise<DeletedListItem | 
 	return mapDeleteListItemRow(rows[0]);
 };
 
-export const deleteListItems = async (itemIds: string[]): Promise<DeletedListItem[]> => {
+export const deleteListItems = async (
+	itemIds: string[],
+	userId: string,
+): Promise<DeletedListItem[]> => {
 	if (itemIds.length === 0) {
 		return [];
 	}
@@ -68,8 +82,9 @@ export const deleteListItems = async (itemIds: string[]): Promise<DeletedListIte
 		`select li.id
      from public.list_items li
      inner join public.lists l on li.list_id = l.id
-     where li.id = any($1::text[])`,
-		[uniqueItemIds],
+     where li.id = any($1::text[])
+       and ${listVisibilityClause(2)}`,
+		[uniqueItemIds, userId],
 	);
 	if (existingRows.length !== uniqueItemIds.length) {
 		return [];
@@ -79,8 +94,9 @@ export const deleteListItems = async (itemIds: string[]): Promise<DeletedListIte
 		`delete from public.list_items li
      using public.lists l
      where li.id = any($1::text[]) and li.list_id = l.id
+       and ${listVisibilityClause(2)}
      returning li.id as item_id, li.name as item_name, li.list_id, l.name as list_name, l.type as list_type`,
-		[uniqueItemIds],
+		[uniqueItemIds, userId],
 	);
 	if ((rowCount ?? 0) === 0 || rows.length === 0) {
 		return [];
@@ -89,11 +105,12 @@ export const deleteListItems = async (itemIds: string[]): Promise<DeletedListIte
 	return rows.map(mapDeleteListItemRow);
 };
 
-export const deleteList = async (listId: string): Promise<DeletedList | null> => {
+export const deleteList = async (listId: string, userId: string): Promise<DeletedList | null> => {
 	const pool = requirePool();
 	const { rows: listRows } = await pool.query<{ id: string; name: string; type: string }>(
-		`select id, name, type from public.lists where id = $1::text`,
-		[listId],
+		`select id, name, type from public.lists
+     where id = $1::text and ${listVisibilityClause(2)}`,
+		[listId, userId],
 	);
 	if (listRows.length === 0) {
 		return null;
@@ -105,7 +122,10 @@ export const deleteList = async (listId: string): Promise<DeletedList | null> =>
 		[listId],
 	);
 
-	const { rowCount } = await pool.query(`delete from public.lists where id = $1::text`, [listId]);
+	const { rowCount } = await pool.query(
+		`delete from public.lists where id = $1::text and ${listVisibilityClause(2)}`,
+		[listId, userId],
+	);
 	if ((rowCount ?? 0) === 0) {
 		return null;
 	}

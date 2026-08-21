@@ -36,9 +36,9 @@ const resolvers = {
 			{ input }: { input: CreateListInput },
 			context: GraphQLContext,
 		) => {
-			requireAuthenticatedUser(context);
+			const { sub } = requireAuthenticatedUser(context);
 			const newList = createNewList(input);
-			await addList(newList);
+			await addList(newList, newList.isPrivate ? sub : null);
 
 			return newList;
 		},
@@ -47,9 +47,9 @@ const resolvers = {
 			{ input }: { input: InsertListItemInput },
 			context: GraphQLContext,
 		) => {
-			requireAuthenticatedUser(context);
+			const { sub } = requireAuthenticatedUser(context);
 			const item = insertListItem(input);
-			const updated = await appendListItem(input.listId, item);
+			const updated = await appendListItem(input.listId, item, sub);
 			if (!updated) {
 				throw new GraphQLError('List not found', {
 					extensions: { code: 'NOT_FOUND' },
@@ -63,8 +63,8 @@ const resolvers = {
 			{ input }: { input: DeleteListItemInput },
 			context: GraphQLContext,
 		) => {
-			requireAuthenticatedUser(context);
-			const deleted = await deleteListItem(input.itemId);
+			const { sub } = requireAuthenticatedUser(context);
+			const deleted = await deleteListItem(input.itemId, sub);
 			if (!deleted) {
 				throw new GraphQLError('List item not found', {
 					extensions: { code: 'NOT_FOUND' },
@@ -80,12 +80,12 @@ const resolvers = {
 			{ input }: { input: DeleteListItemsInput },
 			context: GraphQLContext,
 		) => {
-			requireAuthenticatedUser(context);
+			const { sub } = requireAuthenticatedUser(context);
 			if (input.itemIds.length === 0) {
 				return 0;
 			}
 			const requestedCount = new Set(input.itemIds).size;
-			const deleted = await deleteListItems(input.itemIds);
+			const deleted = await deleteListItems(input.itemIds, sub);
 			if (deleted.length !== requestedCount) {
 				throw new GraphQLError('List items not found', {
 					extensions: { code: 'NOT_FOUND' },
@@ -99,8 +99,8 @@ const resolvers = {
 			{ input }: { input: DeleteListInput },
 			context: GraphQLContext,
 		) => {
-			requireAuthenticatedUser(context);
-			const deleted = await deleteList(input.listId);
+			const { sub } = requireAuthenticatedUser(context);
+			const deleted = await deleteList(input.listId, sub);
 			if (!deleted) {
 				throw new GraphQLError('List not found', {
 					extensions: { code: 'NOT_FOUND' },
@@ -114,12 +114,12 @@ const resolvers = {
 	},
 	Query: {
 		lists: async (_: unknown, __: unknown, context: GraphQLContext) => {
-			requireAuthenticatedUser(context);
-			return getLists();
+			const { sub } = requireAuthenticatedUser(context);
+			return getLists(sub);
 		},
 		list: async (_: unknown, { id }: { id: ID }, context: GraphQLContext) => {
-			requireAuthenticatedUser(context);
-			return getListsById(id);
+			const { sub } = requireAuthenticatedUser(context);
+			return getListsById(id, sub);
 		},
 	},
 };
